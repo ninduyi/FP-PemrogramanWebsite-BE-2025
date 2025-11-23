@@ -51,7 +51,8 @@
       "rules": {
         "@typescript-eslint/no-unsafe-assignment": "off",
         "unicorn/prefer-module": "off",
-        "@typescript-eslint/restrict-template-expressions": "off"
+        "@typescript-eslint/restrict-template-expressions": "off",
+        "unicorn/prefer-node-protocol": "off"
       }
     },
     {
