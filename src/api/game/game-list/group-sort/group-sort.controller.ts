@@ -13,35 +13,40 @@ import {
   validateBody,
 } from '@/common';
 
-import { PairOrNoPairService } from './pair-or-no-pair.service';
+import { GroupSortService } from './group-sort.service';
 import {
-  CreatePairOrNoPairSchema,
-  type ICreatePairOrNoPair,
-  type IUpdatePairOrNoPair,
-  UpdatePairOrNoPairSchema,
+  CheckAnswerSchema,
+  CreateGroupSortSchema,
+  type ICheckAnswer,
+  type ICreateGroupSort,
+  type IUpdateGroupSort,
+  UpdateGroupSortSchema,
 } from './schema';
 
-export const PairOrNoPairController = Router()
+export const GroupSortController = Router()
   .post(
     '/',
     validateAuth({}),
     validateBody({
-      schema: CreatePairOrNoPairSchema,
-      file_fields: [{ name: 'thumbnail_image', maxCount: 1 }],
+      schema: CreateGroupSortSchema,
+      file_fields: [
+        { name: 'thumbnail_image', maxCount: 1 },
+        { name: 'files_to_upload', maxCount: 50 },
+      ],
     }),
     async (
-      request: AuthedRequest<{}, {}, ICreatePairOrNoPair>,
+      request: AuthedRequest<{}, {}, ICreateGroupSort>,
       response: Response,
       next: NextFunction,
     ) => {
       try {
-        const newGame = await PairOrNoPairService.createGame(
+        const newGame = await GroupSortService.createGroupSort(
           request.body,
           request.user!.user_id,
         );
         const result = new SuccessResponse(
           StatusCodes.CREATED,
-          'Game created',
+          'Group Sort game created successfully',
           newGame,
         );
 
@@ -60,65 +65,14 @@ export const PairOrNoPairController = Router()
       next: NextFunction,
     ) => {
       try {
-        const game = await PairOrNoPairService.getGameDetail(
+        const game = await GroupSortService.getGroupSortGameDetail(
           request.params.game_id,
           request.user!.user_id,
           request.user!.role,
         );
         const result = new SuccessResponse(
           StatusCodes.OK,
-          'Get game successfully',
-          game,
-        );
-
-        return response.status(result.statusCode).json(result.json());
-      } catch (error) {
-        return next(error);
-      }
-    },
-  )
-  .get(
-    '/:game_id/play/public',
-    async (
-      request: Request<{ game_id: string }>,
-      response: Response,
-      next: NextFunction,
-    ) => {
-      try {
-        const game = await PairOrNoPairService.getGamePlay(
-          request.params.game_id,
-          true,
-        );
-        const result = new SuccessResponse(
-          StatusCodes.OK,
-          'Get public game successfully',
-          game,
-        );
-
-        return response.status(result.statusCode).json(result.json());
-      } catch (error) {
-        return next(error);
-      }
-    },
-  )
-  .get(
-    '/:game_id/play/private',
-    validateAuth({}),
-    async (
-      request: AuthedRequest<{ game_id: string }>,
-      response: Response,
-      next: NextFunction,
-    ) => {
-      try {
-        const game = await PairOrNoPairService.getGamePlay(
-          request.params.game_id,
-          false,
-          request.user!.user_id,
-          request.user!.role,
-        );
-        const result = new SuccessResponse(
-          StatusCodes.OK,
-          'Get private game successfully',
+          'Get Group Sort game detail successfully',
           game,
         );
 
@@ -132,24 +86,27 @@ export const PairOrNoPairController = Router()
     '/:game_id',
     validateAuth({}),
     validateBody({
-      schema: UpdatePairOrNoPairSchema,
-      file_fields: [{ name: 'thumbnail_image', maxCount: 1 }],
+      schema: UpdateGroupSortSchema,
+      file_fields: [
+        { name: 'thumbnail_image', maxCount: 1 },
+        { name: 'files_to_upload', maxCount: 50 },
+      ],
     }),
     async (
-      request: AuthedRequest<{ game_id: string }, {}, IUpdatePairOrNoPair>,
+      request: AuthedRequest<{ game_id: string }, {}, IUpdateGroupSort>,
       response: Response,
       next: NextFunction,
     ) => {
       try {
-        const updatedGame = await PairOrNoPairService.updateGame(
-          request.body,
+        const updatedGame = await GroupSortService.updateGroupSort(
           request.params.game_id,
+          request.body,
           request.user!.user_id,
           request.user!.role,
         );
         const result = new SuccessResponse(
           StatusCodes.OK,
-          'Game updated',
+          'Group Sort game updated successfully',
           updatedGame,
         );
 
@@ -168,21 +125,97 @@ export const PairOrNoPairController = Router()
       next: NextFunction,
     ) => {
       try {
-        const result = await PairOrNoPairService.deleteGame(
+        await GroupSortService.deleteGroupSort(
           request.params.game_id,
           request.user!.user_id,
           request.user!.role,
         );
-
-        const successResponse = new SuccessResponse(
+        const result = new SuccessResponse(
           StatusCodes.OK,
-          'Game deleted successfully',
-          result,
+          'Group Sort game deleted successfully',
+          { success: true },
         );
 
-        return response
-          .status(successResponse.statusCode)
-          .json(successResponse.json());
+        return response.status(result.statusCode).json(result.json());
+      } catch (error) {
+        return next(error);
+      }
+    },
+  )
+  .get(
+    '/:game_id/play/public',
+    async (
+      request: Request<{ game_id: string }>,
+      response: Response,
+      next: NextFunction,
+    ) => {
+      try {
+        const game = await GroupSortService.getGroupSortPlay(
+          request.params.game_id,
+          true,
+        );
+        const result = new SuccessResponse(
+          StatusCodes.OK,
+          'Get Group Sort game successfully',
+          game,
+        );
+
+        return response.status(result.statusCode).json(result.json());
+      } catch (error) {
+        return next(error);
+      }
+    },
+  )
+  .get(
+    '/:game_id/play/private',
+    validateAuth({}),
+    async (
+      request: AuthedRequest<{ game_id: string }>,
+      response: Response,
+      next: NextFunction,
+    ) => {
+      try {
+        const game = await GroupSortService.getGroupSortPlay(
+          request.params.game_id,
+          false,
+          request.user!.user_id,
+        );
+        const result = new SuccessResponse(
+          StatusCodes.OK,
+          'Get Group Sort game successfully',
+          game,
+        );
+
+        return response.status(result.statusCode).json(result.json());
+      } catch (error) {
+        return next(error);
+      }
+    },
+  )
+  .post(
+    '/:game_id/check-answer',
+    validateAuth({ optional: true }),
+    validateBody({
+      schema: CheckAnswerSchema,
+    }),
+    async (
+      request: AuthedRequest<{ game_id: string }, {}, ICheckAnswer>,
+      response: Response,
+      next: NextFunction,
+    ) => {
+      try {
+        const result_data = await GroupSortService.checkAnswer(
+          request.params.game_id,
+          request.body,
+          request.user?.user_id,
+        );
+        const result = new SuccessResponse(
+          StatusCodes.OK,
+          'Answer checked successfully',
+          result_data,
+        );
+
+        return response.status(result.statusCode).json(result.json());
       } catch (error) {
         return next(error);
       }
