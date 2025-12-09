@@ -37,4 +37,3 @@ export const CreateGroupSortSchema = z.object({
 });
 
 export type ICreateGroupSort = z.infer<typeof CreateGroupSortSchema>;
-

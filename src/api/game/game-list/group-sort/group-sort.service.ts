@@ -1,3 +1,6 @@
+import { unlink } from 'node:fs/promises';
+import path from 'node:path';
+
 import { type Prisma, type ROLE } from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
 import { v4 } from 'uuid';
@@ -146,7 +149,7 @@ export abstract class GroupSortService {
   ) {
     const game = await prisma.games.findUnique({
       where: { id: game_id },
-      select: { creator_id: true, game_json: true },
+      select: { creator_id: true, game_json: true, thumbnail_image: true },
     });
 
     if (!game)
@@ -162,7 +165,22 @@ export abstract class GroupSortService {
       );
 
     let thumbnailImagePath: string | undefined;
+
     if (data.thumbnail_image) {
+      // Delete old thumbnail if exists
+      if (game.thumbnail_image) {
+        try {
+          const uploadsDir = path.join(process.cwd(), '..', 'uploads');
+          const oldImagePath = path.join(uploadsDir, game.thumbnail_image);
+          await unlink(oldImagePath);
+          console.log('Old thumbnail deleted:', oldImagePath);
+        } catch (error) {
+          console.error('Failed to delete old thumbnail:', error);
+          // Continue anyway, don't fail the update
+        }
+      }
+
+      // Upload new thumbnail
       thumbnailImagePath = await FileManager.upload(
         `game/group-sort/${game_id}`,
         data.thumbnail_image,
@@ -170,10 +188,23 @@ export abstract class GroupSortService {
     }
 
     let updatedGameJson: IGroupSortJson | undefined;
+
     if (data.categories) {
       const gameJson = game.game_json as unknown as IGroupSortJson;
 
+      // Collect all old image paths that should be deleted
+      const oldImagePaths = new Set<string>();
+
+      for (const cat of gameJson.categories) {
+        for (const item of cat.items) {
+          if (item.item_image) {
+            oldImagePaths.add(item.item_image);
+          }
+        }
+      }
+
       let itemWithImageAmount = 0;
+
       for (const category of data.categories) {
         for (const item of category.items) {
           if (typeof item.item_image_array_index === 'number') {
@@ -192,6 +223,8 @@ export abstract class GroupSortService {
         );
 
       const imageArray: string[] = [];
+      const usedOldImages = new Set<string>();
+
       if (data.files_to_upload) {
         for (const image of data.files_to_upload) {
           const newImagePath = await FileManager.upload(
@@ -220,6 +253,33 @@ export abstract class GroupSortService {
           })),
         })),
       };
+
+      // Delete old images that are no longer used
+      const newImagePaths = new Set<string>();
+
+      for (const cat of updatedGameJson.categories) {
+        for (const item of cat.items) {
+          if (item.item_image) {
+            newImagePaths.add(item.item_image);
+          }
+        }
+      }
+
+      const imagesToDelete = [...oldImagePaths].filter(
+        img => !newImagePaths.has(img),
+      );
+
+      for (const imagePath of imagesToDelete) {
+        try {
+          const uploadsDir = path.join(process.cwd(), '..', 'uploads');
+          const fullPath = path.join(uploadsDir, imagePath);
+          await unlink(fullPath);
+          console.log('Old item image deleted:', fullPath);
+        } catch (error) {
+          console.error('Failed to delete old item image:', error);
+          // Continue anyway, don't fail the update
+        }
+      }
     }
 
     const updatedGame = await prisma.games.update({
@@ -268,7 +328,11 @@ export abstract class GroupSortService {
     return { success: true };
   }
 
-  static async getGroupSortPlay(game_id: string, isPublic: boolean, user_id?: string) {
+  static async getGroupSortPlay(
+    game_id: string,
+    isPublic: boolean,
+    user_id?: string,
+  ) {
     const game = await prisma.games.findFirst({
       where: { id: game_id },
       select: {
@@ -304,17 +368,18 @@ export abstract class GroupSortService {
 
     const gameJson = game.game_json as unknown as IGroupSortJson;
 
-    const categoriesWithIds = gameJson.categories.map((cat, catIdx) => ({
-      id: `cat-${catIdx}`,
+    const categoriesWithIds = gameJson.categories.map((cat, catIndex) => ({
+      id: `cat-${catIndex}`,
       name: cat.category_name,
-      items: cat.items.map((item, itemIdx) => ({
-        id: `item-${catIdx}-${itemIdx}`,
+      items: cat.items.map((item, itemIndex) => ({
+        id: `item-${catIndex}-${itemIndex}`,
         text: item.item_text,
         image: item.item_image || null,
       })),
     }));
 
     let finalCategories = categoriesWithIds;
+
     if (gameJson.is_category_randomized) {
       finalCategories = [...categoriesWithIds].sort(() => Math.random() - 0.5);
     }
@@ -366,22 +431,24 @@ export abstract class GroupSortService {
 
     // Calculate total items from all categories
     let totalItemsInGame = 0;
-    gameJson.categories.forEach((cat) => {
+
+    for (const cat of gameJson.categories) {
       totalItemsInGame += cat.items.length;
-    });
+    }
 
     const categoryMap = new Map<string, number>();
-    gameJson.categories.forEach((cat, catIdx) => {
-      cat.items.forEach((item, itemIdx) => {
-        categoryMap.set(`item-${catIdx}-${itemIdx}`, catIdx);
-      });
-    });
+
+    for (const [catIndex, cat] of gameJson.categories.entries()) {
+      for (const [itemIndex, item] of cat.items.entries()) {
+        categoryMap.set(`item-${catIndex}-${itemIndex}`, catIndex);
+      }
+    }
 
     let correctCount = 0;
 
     for (const answer of data.answers) {
       const correctCategoryIndex = categoryMap.get(answer.item_id);
-      const answerCategoryIndex = parseInt(
+      const answerCategoryIndex = Number.parseInt(
         answer.category_id.replace('cat-', ''),
       );
 
@@ -392,7 +459,8 @@ export abstract class GroupSortService {
 
     const score = correctCount * gameJson.score_per_item;
     const maxScore = totalItemsInGame * gameJson.score_per_item;
-    const percentage = totalItemsInGame > 0 ? (correctCount / totalItemsInGame) * 100 : 0;
+    const percentage =
+      totalItemsInGame > 0 ? (correctCount / totalItemsInGame) * 100 : 0;
 
     return {
       correct_count: correctCount,

@@ -8,8 +8,8 @@ import {
   validateBody,
 } from '@/common';
 
+import { type ISubmitScore, SubmitScoreSchema } from './schema';
 import { ScoreService } from './score.service';
-import { SubmitScoreSchema, type ISubmitScore } from './schema';
 
 export const ScoreController = Router()
   .post(
@@ -75,7 +75,7 @@ export const ScoreController = Router()
     ) => {
       try {
         const limit = request.query.limit
-          ? parseInt(request.query.limit as string)
+          ? Number.parseInt(request.query.limit as string)
           : 10;
 
         const history = await ScoreService.getUserGameHistory(
@@ -106,7 +106,7 @@ export const ScoreController = Router()
     ) => {
       try {
         const limit = request.query.limit
-          ? parseInt(request.query.limit as string)
+          ? Number.parseInt(request.query.limit as string)
           : 10;
 
         const leaderboard = await ScoreService.getGameLeaderboard(

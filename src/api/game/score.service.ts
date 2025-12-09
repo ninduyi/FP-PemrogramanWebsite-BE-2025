@@ -17,10 +17,7 @@ export abstract class ScoreService {
     });
 
     if (!game) {
-      throw new ErrorResponse(
-        StatusCodes.NOT_FOUND,
-        'Game not found',
-      );
+      throw new ErrorResponse(StatusCodes.NOT_FOUND, 'Game not found');
     }
 
     if (!game.is_published) {
@@ -83,7 +80,14 @@ export abstract class ScoreService {
   static async getGameLeaderboard(
     gameId: string,
     limit: number = 10,
-  ): Promise<Array<{user_id: string; username: string; highest_score: number; total_plays: number}>> {
+  ): Promise<
+    Array<{
+      user_id: string;
+      username: string;
+      highest_score: number;
+      total_plays: number;
+    }>
+  > {
     const leaderboard = await prisma.gameScores.groupBy({
       by: ['user_id'],
       where: {
@@ -103,25 +107,39 @@ export abstract class ScoreService {
 
     // Get user details
     const result = await Promise.all(
-      leaderboard.map(async (entry: { user_id: string; _max: { score: number | null }; _count: number }) => {
-        const user = await prisma.users.findUnique({
-          where: { id: entry.user_id },
-          select: { username: true },
-        });
+      leaderboard.map(
+        async (entry: {
+          user_id: string;
+          _max: { score: number | null };
+          _count: number;
+        }) => {
+          const user = await prisma.users.findUnique({
+            where: { id: entry.user_id },
+            select: { username: true },
+          });
 
-        return {
-          user_id: entry.user_id,
-          username: user?.username || 'Unknown',
-          highest_score: entry._max.score || 0,
-          total_plays: entry._count,
-        };
-      }),
+          return {
+            user_id: entry.user_id,
+            username: user?.username || 'Unknown',
+            highest_score: entry._max.score || 0,
+            total_plays: entry._count,
+          };
+        },
+      ),
     );
 
     return result;
   }
 
-  static async getUserAllScores(userId: string): Promise<Array<{game_id: string; game_name: string; highest_score: number; total_plays: number; last_played: Date}>> {
+  static async getUserAllScores(userId: string): Promise<
+    Array<{
+      game_id: string;
+      game_name: string;
+      highest_score: number;
+      total_plays: number;
+      last_played: Date;
+    }>
+  > {
     const scores = await prisma.gameScores.groupBy({
       by: ['game_id'],
       where: {
@@ -141,29 +159,40 @@ export abstract class ScoreService {
 
     // Get game details
     const result = await Promise.all(
-      scores.map(async (entry: { game_id: string; _max: { score: number | null; created_at: Date | null }; _count: number }) => {
-        const game = await prisma.games.findUnique({
-          where: { id: entry.game_id },
-          select: { name: true },
-        });
+      scores.map(
+        async (entry: {
+          game_id: string;
+          _max: { score: number | null; created_at: Date | null };
+          _count: number;
+        }) => {
+          const game = await prisma.games.findUnique({
+            where: { id: entry.game_id },
+            select: { name: true },
+          });
 
-        return {
-          game_id: entry.game_id,
-          game_name: game?.name || 'Unknown',
-          highest_score: entry._max.score || 0,
-          total_plays: entry._count,
-          last_played: entry._max.created_at || new Date(),
-        };
-      }),
+          return {
+            game_id: entry.game_id,
+            game_name: game?.name || 'Unknown',
+            highest_score: entry._max.score || 0,
+            total_plays: entry._count,
+            last_played: entry._max.created_at || new Date(),
+          };
+        },
+      ),
     );
 
     return result;
   }
 
   // TAMBAHAN: Global Leaderboard untuk semua Group Sort games
-  static async getGlobalGroupSortLeaderboard(
-    limit: number = 10,
-  ): Promise<Array<{user_id: string; username: string; total_score: number; total_plays: number}>> {
+  static async getGlobalGroupSortLeaderboard(limit: number = 10): Promise<
+    Array<{
+      user_id: string;
+      username: string;
+      total_score: number;
+      total_plays: number;
+    }>
+  > {
     // Get game template ID for Group Sort
     const groupSortTemplate = await prisma.gameTemplates.findUnique({
       where: { slug: 'group-sort' },
@@ -210,19 +239,25 @@ export abstract class ScoreService {
 
     // Get user details
     const result = await Promise.all(
-      leaderboard.map(async (entry: { user_id: string; _sum: { score: number | null }; _count: number }) => {
-        const user = await prisma.users.findUnique({
-          where: { id: entry.user_id },
-          select: { username: true },
-        });
+      leaderboard.map(
+        async (entry: {
+          user_id: string;
+          _sum: { score: number | null };
+          _count: number;
+        }) => {
+          const user = await prisma.users.findUnique({
+            where: { id: entry.user_id },
+            select: { username: true },
+          });
 
-        return {
-          user_id: entry.user_id,
-          username: user?.username || 'Unknown',
-          total_score: entry._sum.score || 0,
-          total_plays: entry._count,
-        };
-      }),
+          return {
+            user_id: entry.user_id,
+            username: user?.username || 'Unknown',
+            total_score: entry._sum.score || 0,
+            total_plays: entry._count,
+          };
+        },
+      ),
     );
 
     return result;
