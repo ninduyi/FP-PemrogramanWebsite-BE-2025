@@ -1,30 +1,62 @@
-import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 export abstract class FileManager {
   /**
-   * Fungsi Upload File
-   * @param {string} file_folder_path lokasi upload file dengan format /uploads/{file_folder_path}/{filename}
+   * Fungsi Upload File - Convert to Base64 and save to database
+   * @param {string} file_folder_path lokasi upload file (not used for base64, kept for compatibility)
    * @param {File} file file yang mau diupload
+   * @returns {Promise<string>} Base64 string dengan format data:image/...;base64,...
    */
-  static async upload(file_folder_path: string, file: File) {
-    let cleaned = path.parse(file.name).name.replaceAll(/[^\w -]/g, '');
-    cleaned = cleaned.replaceAll(/\s+/g, '_');
+  static async upload(file_folder_path: string, file: File): Promise<string> {
+    // Convert file to buffer
+    const buffer = await file.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString('base64');
 
-    const timestamp = Date.now();
-    const newFileName = `${cleaned}_${timestamp}`;
-    const newFilePath = `uploads/${file_folder_path}/${newFileName}${path.extname(file.name)}`;
+    // Detect MIME type from file extension
+    const extension = path.extname(file.name).toLowerCase();
+    let mimeType = 'image/png'; // default
 
-    await Bun.write(`./${newFilePath}`, file, { createPath: true });
+    switch (extension) {
+      case '.jpeg': {
+        mimeType = 'image/jpeg';
+        break;
+      }
 
-    return newFilePath;
+      case '.jpg': {
+        mimeType = 'image/jpeg';
+
+        break;
+      }
+
+      case '.png': {
+        mimeType = 'image/png';
+
+        break;
+      }
+
+      case '.gif': {
+        mimeType = 'image/gif';
+
+        break;
+      }
+
+      case '.webp': {
+        mimeType = 'image/webp';
+
+        break;
+      }
+      // No default
+    }
+
+    // Return base64 with data URI prefix
+    return `data:${mimeType};base64,${base64}`;
   }
 
-  static async remove(file_path?: string | null) {
-    if (!file_path) return;
-    if (!existsSync(`./${file_path}`)) return;
-
-    const file = Bun.file(`./${file_path}`);
-    await file.delete();
+  /**
+   * Remove file - Not needed for base64, kept for compatibility
+   */
+  static remove() {
+    // Base64 data is stored in database, nothing to delete from filesystem
+    // Keep this method for backward compatibility
   }
 }

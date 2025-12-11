@@ -106,7 +106,7 @@ export abstract class UserService {
   }
 
   static async updateUser(user_id: string, data: IUpdateUser) {
-    const user = await this.findExistUser(user_id);
+    await this.findExistUser(user_id);
 
     let updatedPicturePath: string | undefined;
 
@@ -115,7 +115,7 @@ export abstract class UserService {
         'profile-picture',
         data.profile_picture,
       );
-      await FileManager.remove(user.profile_picture);
+      FileManager.remove();
     }
 
     const updatedUser = await prisma.users.update({
@@ -134,13 +134,14 @@ export abstract class UserService {
   }
 
   static async deleteUser(user_id: string) {
-    const user = await this.findExistUser(user_id);
+    await this.findExistUser(user_id);
 
     await prisma.users.delete({
       where: { id: user_id },
     });
 
-    await FileManager.remove(user.profile_picture);
+    // Clean up Base64 images - no files to delete
+    FileManager.remove();
   }
 
   private static async findExistUser(user_id: string) {

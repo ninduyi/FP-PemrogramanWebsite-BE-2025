@@ -298,7 +298,7 @@ export abstract class QuizService {
 
     for (const oldPath of oldImagePaths) {
       if (!newImagePaths.includes(oldPath)) {
-        await FileManager.remove(oldPath);
+        FileManager.remove();
       }
     }
 
@@ -514,9 +514,8 @@ export abstract class QuizService {
 
     if (game.thumbnail_image) oldImagePaths.push(game.thumbnail_image);
 
-    for (const path of oldImagePaths) {
-      await FileManager.remove(path);
-    }
+    // Clean up Base64 images - no files to delete
+    FileManager.remove();
 
     await prisma.games.delete({ where: { id: game_id } });
 
