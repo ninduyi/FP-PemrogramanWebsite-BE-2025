@@ -3,11 +3,11 @@
 import { Router } from 'express';
 
 import { AnagramController } from './anagram/anagram.controller';
+import { GroupSortController } from './group-sort/group-sort.controller';
 import { PairOrNoPairController } from './pair-or-no-pair/pair-or-no-pair.controller';
 import { QuizController } from './quiz/quiz.controller';
 import { SpeedSortingController } from './speed-sorting/speed-sorting.controller';
 import { TypeSpeedController } from './type-speed/type-speed.controller';
-import { GroupSortController } from './group-sort/group-sort.controller';
 
 const GameListRouter = Router();
 
