@@ -14,4 +14,5 @@ export interface IGroupSortCategory {
 export interface IGroupSortItem {
   item_text: string;
   item_image: string | null;
+  item_hint?: string;
 }

@@ -71,6 +71,7 @@ export abstract class GroupSortService {
             typeof item.item_image_array_index === 'number'
               ? imageArray[item.item_image_array_index]
               : null,
+          item_hint: item.item_hint || undefined,
         })),
       })),
     };
@@ -225,6 +226,7 @@ export abstract class GroupSortService {
               typeof item.item_image_array_index === 'number'
                 ? imageArray[item.item_image_array_index]
                 : null,
+            item_hint: item.item_hint || undefined,
           })),
         })),
       };
@@ -325,6 +327,7 @@ export abstract class GroupSortService {
         id: `item-${catIndex}-${itemIndex}`,
         text: item.item_text,
         image: item.item_image || null,
+        hint: item.item_hint || undefined,
       })),
     }));
 

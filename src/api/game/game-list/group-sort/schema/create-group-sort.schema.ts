@@ -10,6 +10,7 @@ import {
 export const GroupSortItemSchema = z.object({
   item_text: z.string().max(512).trim(),
   item_image_array_index: z.coerce.number().min(0).max(50).optional(),
+  item_hint: z.string().max(512).trim().optional(),
 });
 
 export const GroupSortCategorySchema = z.object({
