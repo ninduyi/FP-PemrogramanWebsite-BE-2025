@@ -27,16 +27,42 @@ export abstract class ScoreService {
       );
     }
 
-    // Create score record
-    const score = await prisma.gameScores.create({
-      data: {
+    // Cek apakah user sudah punya skor untuk game ini
+    const existing = await prisma.gameScores.findFirst({
+      where: {
         user_id: userId,
         game_id: scoreData.game_id,
-        score: scoreData.score,
-        time_spent: scoreData.time_spent,
-        game_data: scoreData.game_data,
       },
+      orderBy: { score: 'desc' },
     });
+
+    let score;
+
+    if (!existing) {
+      // Belum ada skor, insert baru
+      score = await prisma.gameScores.create({
+        data: {
+          user_id: userId,
+          game_id: scoreData.game_id,
+          score: scoreData.score,
+          time_spent: scoreData.time_spent,
+          game_data: scoreData.game_data,
+        },
+      });
+    } else if (scoreData.score > existing.score) {
+      // Jika skor baru lebih tinggi, update
+      score = await prisma.gameScores.update({
+        where: { id: existing.id },
+        data: {
+          score: scoreData.score,
+          time_spent: scoreData.time_spent,
+          game_data: scoreData.game_data,
+        },
+      });
+    } else {
+      // Skor baru tidak lebih tinggi, return existing
+      score = existing;
+    }
 
     return score;
   }

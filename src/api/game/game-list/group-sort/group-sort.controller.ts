@@ -1,3 +1,5 @@
+// ...existing code...
+// (Deklarasi GroupSortController tunggal, semua endpoint digabung di bawah ini)
 import {
   type NextFunction,
   type Request,
@@ -24,6 +26,219 @@ import {
 } from './schema';
 
 export const GroupSortController = Router()
+  // Support PATCH dengan path pendek agar frontend tidak perlu diubah
+  .patch(
+    '/:game_id',
+    validateAuth({}),
+    validateBody({ schema: UpdateGroupSortSchema.pick({ is_publish: true }) }),
+    async (
+      request: AuthedRequest<{ game_id: string }>,
+      response: Response,
+      next: NextFunction,
+    ) => {
+      try {
+        // Type-safe FormData/JSON fallback
+        let is_publish: boolean | string | undefined;
+        const body = request.body as Record<string, unknown>;
+
+        if (
+          typeof body.is_publish === 'boolean' ||
+          typeof body.is_publish === 'string'
+        ) {
+          is_publish = body.is_publish;
+        } else if (Object.keys(body).length === 1) {
+          const key = Object.keys(body)[0];
+
+          try {
+            const parsed: unknown = JSON.parse(key);
+
+            if (
+              typeof parsed === 'object' &&
+              parsed !== null &&
+              Object.prototype.hasOwnProperty.call(parsed, 'is_publish')
+            ) {
+              const value = (parsed as Record<string, unknown>).is_publish;
+
+              if (typeof value === 'boolean' || typeof value === 'string') {
+                is_publish = value;
+              }
+            }
+          } catch {
+            is_publish = undefined;
+          }
+        }
+
+        const publishValue =
+          typeof is_publish === 'string'
+            ? is_publish === 'true'
+            : Boolean(is_publish);
+        const updatedGame = await GroupSortService.updateGroupSort(
+          request.params.game_id,
+          { is_publish: publishValue },
+          request.user!.user_id,
+          request.user!.role,
+        );
+        const result = new SuccessResponse(
+          StatusCodes.OK,
+          'Group Sort game publish status updated successfully',
+          updatedGame,
+        );
+
+        return response.status(result.statusCode).json(result.json());
+      } catch (error) {
+        console.error(
+          'Update GroupSort PATCH (short) Error:',
+          error,
+          request.body,
+        );
+
+        return next(error);
+      }
+    },
+  )
+  // Support PATCH with FormData for publish/unpublish via /api/game/game-type/group-sort/:game_id
+  .patch(
+    '/game-type/group-sort/:game_id',
+    validateAuth({}),
+    validateBody({ schema: UpdateGroupSortSchema.pick({ is_publish: true }) }),
+    async (
+      request: AuthedRequest<{ game_id: string }>,
+      response: Response,
+      next: NextFunction,
+    ) => {
+      try {
+        let is_publish: boolean | string | undefined;
+        const body = request.body as Record<string, unknown>;
+
+        if (
+          typeof body.is_publish === 'boolean' ||
+          typeof body.is_publish === 'string'
+        ) {
+          is_publish = body.is_publish;
+        } else if (Object.keys(body).length === 1) {
+          const key = Object.keys(body)[0];
+
+          try {
+            const parsed: unknown = JSON.parse(key);
+
+            if (
+              typeof parsed === 'object' &&
+              parsed !== null &&
+              Object.prototype.hasOwnProperty.call(parsed, 'is_publish')
+            ) {
+              const value = (parsed as Record<string, unknown>).is_publish;
+
+              if (typeof value === 'boolean' || typeof value === 'string') {
+                is_publish = value;
+              }
+            }
+          } catch {
+            is_publish = undefined;
+          }
+        }
+
+        const publishValue =
+          typeof is_publish === 'string'
+            ? is_publish === 'true'
+            : Boolean(is_publish);
+        const updatedGame = await GroupSortService.updateGroupSort(
+          request.params.game_id,
+          { is_publish: publishValue },
+          request.user!.user_id,
+          request.user!.role,
+        );
+        const result = new SuccessResponse(
+          StatusCodes.OK,
+          'Group Sort game publish status updated successfully',
+          updatedGame,
+        );
+
+        return response.status(result.statusCode).json(result.json());
+      } catch (error) {
+        console.error('Update GroupSort Publish Status Error:', error);
+
+        return next(error);
+      }
+    },
+  )
+  .put(
+    '/:game_id',
+    validateAuth({}),
+    validateBody({
+      schema: UpdateGroupSortSchema,
+      file_fields: [
+        { name: 'thumbnail_image', maxCount: 1 },
+        { name: 'files_to_upload', maxCount: 50 },
+      ],
+    }),
+    async (
+      request: AuthedRequest<{ game_id: string }>,
+      response: Response,
+      next: NextFunction,
+    ) => {
+      try {
+        let is_publish: boolean | string | undefined;
+        const body = request.body as Record<string, unknown>;
+
+        if (
+          typeof body.is_publish === 'boolean' ||
+          typeof body.is_publish === 'string'
+        ) {
+          is_publish = body.is_publish;
+        } else if (Object.keys(body).length === 1) {
+          const key = Object.keys(body)[0];
+
+          try {
+            const parsed: unknown = JSON.parse(key);
+
+            if (
+              typeof parsed === 'object' &&
+              parsed !== null &&
+              Object.prototype.hasOwnProperty.call(parsed, 'is_publish')
+            ) {
+              const value = (parsed as Record<string, unknown>).is_publish;
+
+              if (typeof value === 'boolean' || typeof value === 'string') {
+                is_publish = value;
+              }
+            }
+          } catch {
+            is_publish = undefined;
+          }
+        }
+
+        const publishValue =
+          typeof is_publish === 'string'
+            ? is_publish === 'true'
+            : Boolean(is_publish);
+        const updatedGame = await GroupSortService.updateGroupSort(
+          request.params.game_id,
+          { ...request.body, is_publish: publishValue } as {
+            [x: string]: unknown;
+            name?: string;
+            description?: string;
+            thumbnail_image?: File;
+            is_publish?: boolean;
+            is_category_randomized?: boolean;
+            categories?: unknown[];
+          },
+          request.user!.user_id,
+          request.user!.role,
+        );
+        const result = new SuccessResponse(
+          StatusCodes.OK,
+          'Group Sort game updated successfully',
+          updatedGame,
+        );
+
+        return response.status(result.statusCode).json(result.json());
+      } catch (error) {
+        console.error('Update GroupSort PUT Error:', error);
+
+        return next(error);
+      }
+    },
+  )
   .post(
     '/',
     validateAuth({}),
@@ -112,6 +327,8 @@ export const GroupSortController = Router()
 
         return response.status(result.statusCode).json(result.json());
       } catch (error) {
+        console.error('Update GroupSort Error:', error);
+
         return next(error);
       }
     },

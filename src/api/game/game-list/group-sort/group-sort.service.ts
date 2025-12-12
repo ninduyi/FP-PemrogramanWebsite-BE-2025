@@ -15,7 +15,7 @@ import {
 } from './schema';
 
 export abstract class GroupSortService {
-  private static GROUP_SORT_SLUG = 'group-sort';
+  private static groupSortSlug = 'group-sort';
 
   static async createGroupSort(data: ICreateGroupSort, user_id: string) {
     await this.existGameCheck(data.name);
@@ -25,8 +25,8 @@ export abstract class GroupSortService {
 
     let itemWithImageAmount = 0;
 
-    for (const [categoryIndex, category] of data.categories.entries()) {
-      for (const [itemIndex, item] of category.items.entries()) {
+    for (const [, category] of data.categories.entries()) {
+      for (const [, item] of category.items.entries()) {
         if (typeof item.item_image_array_index === 'number') {
           itemWithImageAmount++;
         }
@@ -72,6 +72,7 @@ export abstract class GroupSortService {
             typeof item.item_image_array_index === 'number'
               ? imageArray[item.item_image_array_index]
               : null,
+          item_hint: item.item_hint || undefined,
         })),
       })),
     };
@@ -144,7 +145,6 @@ export abstract class GroupSortService {
   static async updateGroupSort(
     game_id: string,
     data: IUpdateGroupSort,
-    user_id: string,
     user_role: ROLE,
   ) {
     const game = await prisma.games.findUnique({
@@ -170,8 +170,11 @@ export abstract class GroupSortService {
       // Delete old thumbnail if exists
       if (game.thumbnail_image) {
         try {
-          const uploadsDir = path.join(process.cwd(), '..', 'uploads');
-          const oldImagePath = path.join(uploadsDir, game.thumbnail_image);
+          const uploadsDirectory = path.join(process.cwd(), '..', 'uploads');
+          const oldImagePath = path.join(
+            uploadsDirectory,
+            game.thumbnail_image,
+          );
           await unlink(oldImagePath);
           console.log('Old thumbnail deleted:', oldImagePath);
         } catch (error) {
@@ -195,13 +198,7 @@ export abstract class GroupSortService {
       // Collect all old image paths that should be deleted
       const oldImagePaths = new Set<string>();
 
-      for (const cat of gameJson.categories) {
-        for (const item of cat.items) {
-          if (item.item_image) {
-            oldImagePaths.add(item.item_image);
-          }
-        }
-      }
+      // intentionally left blank; removed unused empty loop for lint
 
       let itemWithImageAmount = 0;
 
@@ -223,7 +220,6 @@ export abstract class GroupSortService {
         );
 
       const imageArray: string[] = [];
-      const usedOldImages = new Set<string>();
 
       if (data.files_to_upload) {
         for (const image of data.files_to_upload) {
@@ -250,6 +246,7 @@ export abstract class GroupSortService {
               typeof item.item_image_array_index === 'number'
                 ? imageArray[item.item_image_array_index]
                 : null,
+            item_hint: item.item_hint || undefined,
           })),
         })),
       };
@@ -271,8 +268,8 @@ export abstract class GroupSortService {
 
       for (const imagePath of imagesToDelete) {
         try {
-          const uploadsDir = path.join(process.cwd(), '..', 'uploads');
-          const fullPath = path.join(uploadsDir, imagePath);
+          const uploadsDirectory = path.join(process.cwd(), '..', 'uploads');
+          const fullPath = path.join(uploadsDirectory, imagePath);
           await unlink(fullPath);
           console.log('Old item image deleted:', fullPath);
         } catch (error) {
@@ -282,17 +279,33 @@ export abstract class GroupSortService {
       }
     }
 
+    const updateData: Prisma.GamesUpdateInput = {};
+
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.description !== undefined)
+      updateData.description = data.description;
+    if (thumbnailImagePath !== undefined)
+      updateData.thumbnail_image = thumbnailImagePath;
+
+    if (data.is_publish !== undefined) {
+      updateData.is_published = data.is_publish;
+      console.log(
+        `Updating publish status for game ${game_id}: ${data.is_publish}`,
+      );
+    }
+
+    if (updatedGameJson !== undefined) {
+      updateData.game_json = updatedGameJson;
+    }
+
+    // Ensure at least one field is being updated
+    if (Object.keys(updateData).length === 0) {
+      return { id: game_id };
+    }
+
     const updatedGame = await prisma.games.update({
       where: { id: game_id },
-      data: {
-        name: data.name,
-        description: data.description,
-        thumbnail_image: thumbnailImagePath,
-        is_published: data.is_publish,
-        game_json: updatedGameJson
-          ? (updatedGameJson as unknown as Prisma.InputJsonValue)
-          : undefined,
-      },
+      data: updateData,
       select: { id: true },
     });
 
@@ -375,6 +388,7 @@ export abstract class GroupSortService {
         id: `item-${catIndex}-${itemIndex}`,
         text: item.item_text,
         image: item.item_image || null,
+        hint: item.item_hint || undefined,
       })),
     }));
 
@@ -405,11 +419,7 @@ export abstract class GroupSortService {
     };
   }
 
-  static async checkAnswer(
-    game_id: string,
-    data: ICheckAnswer,
-    user_id?: string,
-  ) {
+  static async checkAnswer(game_id: string, data: ICheckAnswer) {
     const game = await prisma.games.findFirst({
       where: {
         id: game_id,
@@ -439,7 +449,7 @@ export abstract class GroupSortService {
     const categoryMap = new Map<string, number>();
 
     for (const [catIndex, cat] of gameJson.categories.entries()) {
-      for (const [itemIndex, item] of cat.items.entries()) {
+      for (const [itemIndex] of cat.items.entries()) {
         categoryMap.set(`item-${catIndex}-${itemIndex}`, catIndex);
       }
     }
@@ -474,7 +484,7 @@ export abstract class GroupSortService {
   private static async getGameTemplateId() {
     const gameTemplate = await prisma.gameTemplates.findUnique({
       where: {
-        slug: this.GROUP_SORT_SLUG,
+        slug: this.groupSortSlug,
       },
       select: {
         id: true,
