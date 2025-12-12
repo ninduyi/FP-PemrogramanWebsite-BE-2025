@@ -145,6 +145,7 @@ export abstract class GroupSortService {
   static async updateGroupSort(
     game_id: string,
     data: IUpdateGroupSort,
+    user_id: string,
     user_role: ROLE,
   ) {
     const game = await prisma.games.findUnique({
