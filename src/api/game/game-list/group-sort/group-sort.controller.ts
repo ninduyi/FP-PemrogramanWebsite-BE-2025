@@ -166,10 +166,6 @@ export const GroupSortController = Router()
     validateAuth({}),
     validateBody({
       schema: UpdateGroupSortSchema,
-      file_fields: [
-        { name: 'thumbnail_image', maxCount: 1 },
-        { name: 'files_to_upload', maxCount: 50 },
-      ],
     }),
     async (
       request: AuthedRequest<{ game_id: string }>,
@@ -213,15 +209,7 @@ export const GroupSortController = Router()
             : Boolean(is_publish);
         const updatedGame = await GroupSortService.updateGroupSort(
           request.params.game_id,
-          { ...request.body, is_publish: publishValue } as {
-            [x: string]: unknown;
-            name?: string;
-            description?: string;
-            thumbnail_image?: File;
-            is_publish?: boolean;
-            is_category_randomized?: boolean;
-            categories?: unknown[];
-          },
+          { ...request.body, is_publish: publishValue } as IUpdateGroupSort,
           request.user!.user_id,
           request.user!.role,
         );
@@ -244,10 +232,6 @@ export const GroupSortController = Router()
     validateAuth({}),
     validateBody({
       schema: CreateGroupSortSchema,
-      file_fields: [
-        { name: 'thumbnail_image', maxCount: 1 },
-        { name: 'files_to_upload', maxCount: 50 },
-      ],
     }),
     async (
       request: AuthedRequest<{}, {}, ICreateGroupSort>,
@@ -302,10 +286,6 @@ export const GroupSortController = Router()
     validateAuth({}),
     validateBody({
       schema: UpdateGroupSortSchema,
-      file_fields: [
-        { name: 'thumbnail_image', maxCount: 1 },
-        { name: 'files_to_upload', maxCount: 50 },
-      ],
     }),
     async (
       request: AuthedRequest<{ game_id: string }, {}, IUpdateGroupSort>,
@@ -424,7 +404,6 @@ export const GroupSortController = Router()
         const result_data = await GroupSortService.checkAnswer(
           request.params.game_id,
           request.body,
-          request.user?.user_id,
         );
         const result = new SuccessResponse(
           StatusCodes.OK,

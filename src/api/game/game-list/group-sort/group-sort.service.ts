@@ -1,6 +1,3 @@
-import { unlink } from 'node:fs/promises';
-import path from 'node:path';
-
 import { type Prisma, type ROLE } from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
 import { v4 } from 'uuid';
@@ -23,58 +20,47 @@ export abstract class GroupSortService {
     const newGameId = v4();
     const gameTemplateId = await this.getGameTemplateId();
 
-    let itemWithImageAmount = 0;
+    // Handle thumbnail image conversion from base64 to file
+    let thumbnailImagePath = '';
 
-    for (const [, category] of data.categories.entries()) {
-      for (const [, item] of category.items.entries()) {
-        if (typeof item.item_image_array_index === 'number') {
-          itemWithImageAmount++;
-        }
-      }
-    }
-
-    if (
-      data.files_to_upload &&
-      itemWithImageAmount !== data.files_to_upload.length
-    )
-      throw new ErrorResponse(
-        StatusCodes.BAD_REQUEST,
-        'All uploaded files must be used',
-      );
-
-    const thumbnailImagePath = await FileManager.upload(
-      `game/group-sort/${newGameId}`,
-      data.thumbnail_image,
-    );
-
-    const imageArray: string[] = [];
-
-    if (data.files_to_upload) {
-      for (const image of data.files_to_upload) {
-        const newImagePath = await FileManager.upload(
-          `game/group-sort/${newGameId}`,
-          image,
+    if (data.thumbnail_image) {
+      try {
+        const file = this.base64ToFile(
+          data.thumbnail_image,
+          `thumbnail_${Date.now()}.png`,
         );
-        imageArray.push(newImagePath);
+        thumbnailImagePath = await FileManager.upload(
+          `game/group-sort/${newGameId}`,
+          file,
+        );
+      } catch (error) {
+        console.error('Failed to process thumbnail image:', error);
+        thumbnailImagePath = '';
       }
     }
+
+    // Handle item images conversion from base64 to file
+    const processedCategories = await Promise.all(
+      data.categories.map(async category => ({
+        category_name: category.category_name,
+        items: await Promise.all(
+          category.items.map(async item => ({
+            item_text: item.item_text,
+            item_image: item.item_image
+              ? await this.base64ToFilePath(item.item_image, newGameId)
+              : null,
+            item_hint: item.item_hint || undefined,
+          })),
+        ),
+      })),
+    );
 
     const groupSortJson: IGroupSortJson = {
       score_per_item: data.score_per_item,
       time_limit: data.time_limit,
       is_category_randomized: data.is_category_randomized,
       is_item_randomized: data.is_item_randomized,
-      categories: data.categories.map(category => ({
-        category_name: category.category_name,
-        items: category.items.map(item => ({
-          item_text: item.item_text,
-          item_image:
-            typeof item.item_image_array_index === 'number'
-              ? imageArray[item.item_image_array_index]
-              : null,
-          item_hint: item.item_hint || undefined,
-        })),
-      })),
+      categories: processedCategories,
     };
 
     const newGame = await prisma.games.create({
@@ -150,7 +136,7 @@ export abstract class GroupSortService {
   ) {
     const game = await prisma.games.findUnique({
       where: { id: game_id },
-      select: { creator_id: true, game_json: true, thumbnail_image: true },
+      select: { creator_id: true, game_json: true },
     });
 
     if (!game)
@@ -165,72 +151,10 @@ export abstract class GroupSortService {
         'You are not authorized to edit this game',
       );
 
-    let thumbnailImagePath: string | undefined;
-
-    if (data.thumbnail_image) {
-      // Delete old thumbnail if exists
-      if (game.thumbnail_image) {
-        try {
-          const uploadsDirectory = path.join(process.cwd(), '..', 'uploads');
-          const oldImagePath = path.join(
-            uploadsDirectory,
-            game.thumbnail_image,
-          );
-          await unlink(oldImagePath);
-          console.log('Old thumbnail deleted:', oldImagePath);
-        } catch (error) {
-          console.error('Failed to delete old thumbnail:', error);
-          // Continue anyway, don't fail the update
-        }
-      }
-
-      // Upload new thumbnail
-      thumbnailImagePath = await FileManager.upload(
-        `game/group-sort/${game_id}`,
-        data.thumbnail_image,
-      );
-    }
-
     let updatedGameJson: IGroupSortJson | undefined;
 
     if (data.categories) {
       const gameJson = game.game_json as unknown as IGroupSortJson;
-
-      // Collect all old image paths that should be deleted
-      const oldImagePaths = new Set<string>();
-
-      // intentionally left blank; removed unused empty loop for lint
-
-      let itemWithImageAmount = 0;
-
-      for (const category of data.categories) {
-        for (const item of category.items) {
-          if (typeof item.item_image_array_index === 'number') {
-            itemWithImageAmount++;
-          }
-        }
-      }
-
-      if (
-        data.files_to_upload &&
-        itemWithImageAmount !== data.files_to_upload.length
-      )
-        throw new ErrorResponse(
-          StatusCodes.BAD_REQUEST,
-          'All uploaded files must be used',
-        );
-
-      const imageArray: string[] = [];
-
-      if (data.files_to_upload) {
-        for (const image of data.files_to_upload) {
-          const newImagePath = await FileManager.upload(
-            `game/group-sort/${game_id}`,
-            image,
-          );
-          imageArray.push(newImagePath);
-        }
-      }
 
       updatedGameJson = {
         score_per_item: data.score_per_item ?? gameJson.score_per_item,
@@ -243,41 +167,11 @@ export abstract class GroupSortService {
           category_name: category.category_name,
           items: category.items.map(item => ({
             item_text: item.item_text,
-            item_image:
-              typeof item.item_image_array_index === 'number'
-                ? imageArray[item.item_image_array_index]
-                : null,
+            item_image: item.item_image || null,
             item_hint: item.item_hint || undefined,
           })),
         })),
-      };
-
-      // Delete old images that are no longer used
-      const newImagePaths = new Set<string>();
-
-      for (const cat of updatedGameJson.categories) {
-        for (const item of cat.items) {
-          if (item.item_image) {
-            newImagePaths.add(item.item_image);
-          }
-        }
-      }
-
-      const imagesToDelete = [...oldImagePaths].filter(
-        img => !newImagePaths.has(img),
-      );
-
-      for (const imagePath of imagesToDelete) {
-        try {
-          const uploadsDirectory = path.join(process.cwd(), '..', 'uploads');
-          const fullPath = path.join(uploadsDirectory, imagePath);
-          await unlink(fullPath);
-          console.log('Old item image deleted:', fullPath);
-        } catch (error) {
-          console.error('Failed to delete old item image:', error);
-          // Continue anyway, don't fail the update
-        }
-      }
+      } as IGroupSortJson;
     }
 
     const updateData: Prisma.GamesUpdateInput = {};
@@ -285,8 +179,38 @@ export abstract class GroupSortService {
     if (data.name !== undefined) updateData.name = data.name;
     if (data.description !== undefined)
       updateData.description = data.description;
-    if (thumbnailImagePath !== undefined)
-      updateData.thumbnail_image = thumbnailImagePath;
+
+    // Handle thumbnail image update from base64 to file
+    if (data.thumbnail_image !== undefined) {
+      try {
+        if (data.thumbnail_image) {
+          // Delete old thumbnail if it exists
+          const currentGame = await prisma.games.findUnique({
+            where: { id: game_id },
+            select: { thumbnail_image: true },
+          });
+
+          if (currentGame?.thumbnail_image) {
+            await FileManager.remove(currentGame.thumbnail_image);
+          }
+
+          // Upload new thumbnail
+          const file = this.base64ToFile(
+            data.thumbnail_image,
+            `thumbnail_${Date.now()}.png`,
+          );
+          updateData.thumbnail_image = await FileManager.upload(
+            `game/group-sort/${game_id}`,
+            file,
+          );
+        } else {
+          updateData.thumbnail_image = '';
+        }
+      } catch (error) {
+        console.error('Failed to process thumbnail image:', error);
+        // Don't update thumbnail if there's an error
+      }
+    }
 
     if (data.is_publish !== undefined) {
       updateData.is_published = data.is_publish;
@@ -295,8 +219,27 @@ export abstract class GroupSortService {
       );
     }
 
+    // Handle categories update with item image conversion
     if (updatedGameJson !== undefined) {
-      updateData.game_json = updatedGameJson;
+      const processedCategories = await Promise.all(
+        updatedGameJson.categories.map(async category => ({
+          category_name: category.category_name,
+          items: await Promise.all(
+            category.items.map(async item => ({
+              item_text: item.item_text,
+              item_image: item.item_image
+                ? await this.base64ToFilePath(item.item_image, game_id)
+                : null,
+              item_hint: item.item_hint || undefined,
+            })),
+          ),
+        })),
+      );
+
+      updateData.game_json = {
+        ...updatedGameJson,
+        categories: processedCategories,
+      } as unknown as Prisma.InputJsonValue;
     }
 
     // Ensure at least one field is being updated
@@ -334,6 +277,9 @@ export abstract class GroupSortService {
         StatusCodes.FORBIDDEN,
         'You are not authorized to delete this game',
       );
+
+    // Delete associated files
+    await FileManager.removeFolder(`uploads/game/group-sort/${game_id}`);
 
     await prisma.games.delete({
       where: { id: game_id },
@@ -513,5 +459,62 @@ export abstract class GroupSortService {
         StatusCodes.CONFLICT,
         'Game with this name already exists',
       );
+  }
+
+  /**
+   * Convert base64 string to File object
+   */
+  private static base64ToFile(base64String: string, fileName: string): File {
+    // Extract base64 data part
+    let base64Data = base64String;
+
+    // If it has data URL prefix, extract the base64 part after comma
+    if (base64String.startsWith('data:')) {
+      const parts = base64String.split(',');
+      base64Data = parts.length > 1 ? parts[1] : base64String;
+    }
+
+    // Convert base64 to buffer
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // Create blob and file
+    const blob = new Blob([buffer], { type: 'image/png' });
+
+    return new File([blob], fileName, { type: 'image/png' });
+  }
+
+  /**
+   * Convert base64 image to file path if it's a base64 string, otherwise return as-is if it's already a file path
+   */
+  private static async base64ToFilePath(
+    imageData: string,
+    gameId: string,
+  ): Promise<string | null> {
+    // Check if it's a base64 string (starts with 'data:' or very long string)
+    if (!imageData || typeof imageData !== 'string') {
+      return null;
+    }
+
+    if (imageData.startsWith('data:') || imageData.length > 500) {
+      try {
+        const fileName = `item_${Date.now()}_${Math.random().toString(36).slice(2, 9)}.png`;
+
+        const file = this.base64ToFile(imageData, fileName);
+
+        const filePath = await FileManager.upload(
+          `game/group-sort/${gameId}`,
+          file,
+        );
+
+        return filePath;
+      } catch (error) {
+        console.error('Failed to convert base64 to file path:', error);
+
+        return null;
+      }
+    }
+
+    // If it's already a file path, return as-is
+    return imageData;
   }
 }
