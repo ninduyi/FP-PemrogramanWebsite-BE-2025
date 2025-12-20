@@ -1,4 +1,5 @@
 export * from './crossword.interface';
+export * from './group-sort.interface';
 export * from './hangman.interface';
 export * from './maze-chase.interface';
 export * from './pair-or-no-pair.interface';

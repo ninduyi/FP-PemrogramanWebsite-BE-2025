@@ -4,6 +4,7 @@ import airplaneRouter from './airplane/airplane.router';
 import { AnagramController } from './anagram/anagram.controller';
 import { CrosswordController } from './crossword/crossword.controller';
 import { FindTheMatchController } from './find-the-match/find-the-match.controller';
+import { GroupSortController } from './group-sort/group-sort.controller';
 import { HangmanController } from './hangman/hangman.controller';
 import { MazeChaseController } from './maze-chase/maze-chase.controller';
 import { PairOrNoPairController } from './pair-or-no-pair/pair-or-no-pair.controller';
@@ -23,6 +24,7 @@ gameListRouter.use('/maze-chase', MazeChaseController);
 gameListRouter.use('/sliding-puzzle', SlidingPuzzleController);
 gameListRouter.use('/speed-sorting', SpeedSortingController);
 gameListRouter.use('/anagram', AnagramController);
+gameListRouter.use('/group-sort', GroupSortController);
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
 gameListRouter.use('/crossword', CrosswordController);
