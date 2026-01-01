@@ -8,8 +8,8 @@ import {
   validateBody,
 } from '@/common';
 
-import { GroupSortScoreService } from './game-list/group-sort/group-sort-score.service';
-import { type ISubmitScore, SubmitScoreSchema } from './schema';
+import { type ISubmitScore, SubmitScoreSchema } from '../../schema';
+import { GroupSortScoreService } from './group-sort-score.service';
 import { ScoreService } from './score.service';
 
 export const ScoreController = Router()

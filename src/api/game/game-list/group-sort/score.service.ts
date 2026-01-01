@@ -1,15 +1,18 @@
-import { type GameScores } from '@prisma/client';
+import { type Leaderboard } from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
 
 import { ErrorResponse, prisma } from '@/common';
 
-import { type ISubmitScore } from './schema';
+import { type ISubmitScore } from '../../schema';
+
+// Type alias untuk kompatibilitas
+type GameScoresProps = Leaderboard;
 
 export abstract class ScoreService {
   static async submitScore(
     userId: string,
     scoreData: ISubmitScore,
-  ): Promise<GameScores> {
+  ): Promise<GameScoresProps> {
     // Check if game exists and is published
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     const game = await prisma.games.findUnique({
@@ -30,13 +33,12 @@ export abstract class ScoreService {
 
     // Create score record
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    const score = await prisma.gameScores.create({
+    const score = await prisma.leaderboard.create({
       data: {
         user_id: userId,
         game_id: scoreData.game_id,
         score: scoreData.score,
-        time_spent: scoreData.time_spent,
-        game_data: scoreData.game_data,
+        time_taken: scoreData.time_spent,
       },
     });
 
@@ -48,9 +50,9 @@ export abstract class ScoreService {
     userId: string,
     gameId: string,
     // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
-  ): Promise<GameScores | null> {
+  ): Promise<GameScoresProps | null> {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    const highestScore = await prisma.gameScores.findFirst({
+    const highestScore = await prisma.leaderboard.findFirst({
       where: {
         user_id: userId,
         game_id: gameId,
@@ -68,9 +70,9 @@ export abstract class ScoreService {
     userId: string,
     gameId: string,
     limit: number = 10,
-  ): Promise<GameScores[]> {
+  ): Promise<GameScoresProps[]> {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    const history = await prisma.gameScores.findMany({
+    const history = await prisma.leaderboard.findMany({
       where: {
         user_id: userId,
         game_id: gameId,
@@ -97,7 +99,7 @@ export abstract class ScoreService {
     }>
   > {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    const leaderboard = await prisma.gameScores.groupBy({
+    const leaderboard = await prisma.leaderboard.groupBy({
       by: ['user_id'],
       where: {
         game_id: gameId,
@@ -120,18 +122,18 @@ export abstract class ScoreService {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       leaderboard.map(
         async (entry: {
-          user_id: string;
+          user_id: string | null;
           _max: { score: number | null };
           _count: number;
         }) => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           const user = await prisma.users.findUnique({
-            where: { id: entry.user_id },
+            where: { id: entry.user_id || '' },
             select: { username: true },
           });
 
           return {
-            user_id: entry.user_id,
+            user_id: entry.user_id || '',
             username: user?.username || 'Unknown',
             highest_score: entry._max.score || 0,
             total_plays: entry._count,
@@ -154,7 +156,7 @@ export abstract class ScoreService {
     }>
   > {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    const scores = await prisma.gameScores.groupBy({
+    const scores = await prisma.leaderboard.groupBy({
       by: ['game_id'],
       where: {
         user_id: userId,
@@ -177,18 +179,18 @@ export abstract class ScoreService {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       scores.map(
         async (entry: {
-          game_id: string;
+          game_id: string | null;
           _max: { score: number | null; created_at: Date | null };
           _count: number;
         }) => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           const game = await prisma.games.findUnique({
-            where: { id: entry.game_id },
+            where: { id: entry.game_id || '' },
             select: { name: true },
           });
 
           return {
-            game_id: entry.game_id,
+            game_id: entry.game_id || '',
             game_name: game?.name || 'Unknown',
             highest_score: entry._max.score || 0,
             total_plays: entry._count,
@@ -239,7 +241,7 @@ export abstract class ScoreService {
 
     // Group by user and sum all scores across all Group Sort games
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    const leaderboard = await prisma.gameScores.groupBy({
+    const leaderboard = await prisma.leaderboard.groupBy({
       by: ['user_id'],
       where: {
         game_id: {
@@ -264,18 +266,18 @@ export abstract class ScoreService {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       leaderboard.map(
         async (entry: {
-          user_id: string;
+          user_id: string | null;
           _sum: { score: number | null };
           _count: number;
         }) => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           const user = await prisma.users.findUnique({
-            where: { id: entry.user_id },
+            where: { id: entry.user_id || '' },
             select: { username: true },
           });
 
           return {
-            user_id: entry.user_id,
+            user_id: entry.user_id || '',
             username: user?.username || 'Unknown',
             total_score: entry._sum.score || 0,
             total_plays: entry._count,
