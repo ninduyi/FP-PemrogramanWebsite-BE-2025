@@ -131,13 +131,20 @@ export abstract class GroupSortService {
       id: game.id,
       name: game.name,
       description: game.description,
-      thumbnail_image: game.thumbnail_image,
+      thumbnail_image: FileManager.toAbsoluteUrl(game.thumbnail_image),
       is_published: game.is_published,
       score_per_item: gameJson.score_per_item,
       time_limit: gameJson.time_limit,
       is_category_randomized: gameJson.is_category_randomized,
       is_item_randomized: gameJson.is_item_randomized,
-      categories: gameJson.categories,
+      categories: gameJson.categories.map(cat => ({
+        category_name: cat.category_name,
+        items: cat.items.map(item => ({
+          item_text: item.item_text,
+          item_image: FileManager.toAbsoluteUrl(item.item_image),
+          item_hint: item.item_hint,
+        })),
+      })),
     };
   }
 
@@ -248,7 +255,9 @@ export abstract class GroupSortService {
       data: {
         name: data.name,
         description: data.description,
-        thumbnail_image: thumbnailImagePath,
+        ...(thumbnailImagePath !== undefined && {
+          thumbnail_image: thumbnailImagePath,
+        }),
         is_published: data.is_publish,
         game_json: updatedGameJson
           ? (updatedGameJson as unknown as Prisma.InputJsonValue)
@@ -402,7 +411,7 @@ export abstract class GroupSortService {
       items: cat.items.map((item, itemIndex) => ({
         id: `item-${catIndex}-${itemIndex}`,
         text: item.item_text,
-        image: item.item_image || null,
+        image: FileManager.toAbsoluteUrl(item.item_image),
         hint: item.item_hint || undefined,
       })),
     }));
@@ -424,7 +433,7 @@ export abstract class GroupSortService {
       id: game.id,
       name: game.name,
       description: game.description,
-      thumbnail_image: game.thumbnail_image,
+      thumbnail_image: FileManager.toAbsoluteUrl(game.thumbnail_image),
       is_published: game.is_published,
       game_data: {
         categories: finalCategories,

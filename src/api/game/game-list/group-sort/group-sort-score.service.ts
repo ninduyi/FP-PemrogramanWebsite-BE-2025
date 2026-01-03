@@ -2,7 +2,7 @@ import { StatusCodes } from 'http-status-codes';
 
 import { ErrorResponse, prisma } from '@/common';
 
-import { type ISubmitScore } from '../../schema';
+import { type ISubmitScore } from './schema';
 
 /**
  * Group Sort Score Service

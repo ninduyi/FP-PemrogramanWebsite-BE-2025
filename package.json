@@ -10,7 +10,7 @@
     "build:binary": "bun build --compile --target bun --outfile server ./src/main.ts",
     "db:dev": "dotenv -e .env.development -- bun migrate:dev && bun seed:dev",
     "db:prod": "dotenv -e .env.production -- bun migrate:dev && bun seed:dev",
-    "dev": "dotenv -e .env.development -- tsx watch src/main.ts",
+    "dev": "bun --env-file=.env.development --watch src/main.ts",
     "docker:down:dev": "dotenv -e .env.development -- docker compose down",
     "docker:down:prod": "dotenv -e .env.production -- docker compose down",
     "docker:up:dev": "dotenv -e .env.development -- docker compose up -d",

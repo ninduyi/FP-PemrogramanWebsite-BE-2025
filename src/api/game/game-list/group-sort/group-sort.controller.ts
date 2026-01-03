@@ -22,8 +22,10 @@ import {
   type IUpdateGroupSort,
   UpdateGroupSortSchema,
 } from './schema';
+import { ScoreController } from './score.controller';
 
 export const GroupSortController = Router()
+  .use('/score', ScoreController)
   .post(
     '/',
     validateAuth({}),

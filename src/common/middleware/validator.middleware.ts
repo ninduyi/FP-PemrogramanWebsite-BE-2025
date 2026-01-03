@@ -45,12 +45,23 @@ export const validateBody = <T>({
       const filesData =
         file_fields.length > 0
           ? Object.fromEntries(
-              Object.entries(request.files || {}).map(([key, value]) => [
-                key,
-                Array.isArray(value) && value.length > 1
-                  ? value.map(item => multerToFile(item))
-                  : multerToFile(value[0]),
-              ]),
+              Object.entries(request.files || {}).map(([key, value]) => {
+                // Check if this field expects an array (maxCount > 1) or single file (maxCount === 1)
+                const fieldConfig = file_fields.find(f => f.name === key);
+                const expectsArray = fieldConfig && fieldConfig.maxCount > 1;
+
+                let processedValue;
+
+                if (Array.isArray(value)) {
+                  processedValue = expectsArray
+                    ? value.map(item => multerToFile(item))
+                    : multerToFile(value[0]);
+                } else {
+                  processedValue = multerToFile(value);
+                }
+
+                return [key, processedValue];
+              }),
             )
           : {};
 

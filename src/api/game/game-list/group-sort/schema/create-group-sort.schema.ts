@@ -38,7 +38,7 @@ export const CreateGroupSortSchema = z.object({
     .max(600)
     .default(60),
   files_to_upload: fileArraySchema({
-    max_size: 2 * 1024 * 1024,
+    max_size: 5 * 1024 * 1024,
     min_amount: 0,
     max_amount: 50,
   }).optional(),

@@ -9,7 +9,7 @@ import {
 import { StatusCodes } from 'http-status-codes';
 
 import { ErrorResponse, prisma } from '@/common';
-import { paginate } from '@/utils';
+import { FileManager, paginate } from '@/utils';
 
 import {
   type IGamePaginateQuery,
@@ -106,6 +106,7 @@ export abstract class GameService {
 
     const cleanedResult = paginationResult.data.map(game => ({
       ...game,
+      thumbnail_image: FileManager.toAbsoluteUrl(game.thumbnail_image),
       game_template: undefined,
       game_template_name: game.game_template.name,
       game_template_slug: game.game_template.slug,
