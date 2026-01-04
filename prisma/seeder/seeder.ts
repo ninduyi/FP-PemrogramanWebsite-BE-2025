@@ -1,3 +1,5 @@
+//
+
 import { PrismaClient } from '@prisma/client';
 
 import { gameTemplateSeed, quizSeed, userSeed } from './seed';
