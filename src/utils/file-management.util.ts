@@ -1,51 +1,24 @@
 import { existsSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
+import path from 'node:path';
 
 export abstract class FileManager {
   /**
-   * Fungsi Upload File - Convert to Base64
-   * @param {string} file_folder_path lokasi upload file (tidak digunakan, untuk backward compatibility)
+   * Fungsi Upload File
+   * @param {string} file_folder_path lokasi upload file dengan format /uploads/{file_folder_path}/{filename}
    * @param {File} file file yang mau diupload
-   * @returns {Promise<string>} base64 string dengan format data:image/jpeg;base64,...
    */
   static async upload(file_folder_path: string, file: File) {
-    // Convert file to base64
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64 = buffer.toString('base64');
+    let cleaned = path.parse(file.name).name.replaceAll(/[^\w -]/g, '');
+    cleaned = cleaned.replaceAll(/\s+/g, '_');
 
-    const result = `data:${file.type};base64,${base64}`;
-    console.log(
-      `📤 Upload: ${file.name} (${file.size} bytes, ${file.type}) -> Base64 length: ${base64.length}`,
-    );
+    const timestamp = Date.now();
+    const newFileName = `${cleaned}_${timestamp}`;
+    const newFilePath = `uploads/${file_folder_path}/${newFileName}${path.extname(file.name)}`;
 
-    // Return with data URL format
-    return result;
-  }
+    await Bun.write(`./${newFilePath}`, file, { createPath: true });
 
-  /**
-   * Konversi path relatif ke URL absolut (atau return base64 as is)
-   * @param {string | null | undefined} filePath path relatif dari file atau base64 string
-   * @returns {string | null} URL absolut, base64 string, atau null
-   */
-  static toAbsoluteUrl(filePath: string | null | undefined): string | null {
-    if (!filePath) return null;
-
-    // Jika sudah berupa base64 data URL, return as is
-    if (filePath.startsWith('data:')) {
-      return filePath;
-    }
-
-    // Jika sudah berupa URL lengkap, return as is
-    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
-      return filePath;
-    }
-
-    // Legacy: convert file path to absolute URL
-    const baseUrl = process.env.BASE_URL || 'http://localhost:4002';
-    const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-
-    return `${baseUrl}${normalizedPath}`;
+    return newFilePath;
   }
 
   static async remove(file_path?: string | null) {
